@@ -173,7 +173,33 @@ func friendList(c *gin.Context) {
 }
 
 func friendCommon(c *gin.Context) {
+	//init db
+	sess := getDB()
+	defer sess.Close()
+	db := sess.DB("imd").C("users")
 
+	var f Friend
+	user1 := User{}
+	user2 := User{}
+
+	c.BindJSON(&f)
+	u1 := f.Friends[0]
+	u2 := f.Friends[1]
+
+	err_user1 := db.Find(bson.M{"email": u1}).One(&user1)
+	err_user2 := db.Find(bson.M{"email": u2}).One(&user2)
+	if err_user1 != nil && err_user2 != nil {
+		c.JSON(200, gin.H{
+			"message": "user not found",
+		})
+	} else {
+		common := intersection(user1.Friends, user2.Friends)
+		c.JSON(200, gin.H{
+			"success": true,
+			"friends": common,
+			"count":   len(common),
+		})
+	}
 }
 
 func subscribe(c *gin.Context) {
@@ -189,6 +215,36 @@ func notification(c *gin.Context) {
 }
 
 // HELPER
+func intersection(a []string, b []string) (inter []string) {
+	low, high := a, b
+	if len(a) > len(b) {
+		low = b
+		high = a
+	}
+
+	done := false
+	for i, l := range low {
+		for j, h := range high {
+			f1 := i + 1
+			f2 := j + 1
+			if l == h {
+				inter = append(inter, h)
+				if f1 < len(low) && f2 < len(high) {
+					if low[f1] != high[f2] {
+						done = true
+					}
+				}
+				high = high[:j+copy(high[j:], high[j+1:])]
+				break
+			}
+		}
+		if done {
+			break
+		}
+	}
+	return
+}
+
 func checkSliceExist(elements []string, email string) bool {
 	// Create a map of all unique elements.
 	for v := range elements {
