@@ -149,7 +149,27 @@ func friendRequest(c *gin.Context) {
 }
 
 func friendList(c *gin.Context) {
+	var user User
+	//init db
+	sess := getDB()
+	defer sess.Close()
+	db := sess.DB("imd").C("users")
 
+	//get request from post
+	c.BindJSON(&user)
+	email := user.Email
+	err := db.Find(bson.M{"email": email}).One(&user)
+	if err != nil {
+		c.JSON(200, gin.H{
+			"message": err.Error(),
+		})
+	} else {
+		c.JSON(200, gin.H{
+			"success": true,
+			"friends": user.Friends,
+			"count":   len(user.Friends),
+		})
+	}
 }
 
 func friendCommon(c *gin.Context) {
