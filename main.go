@@ -203,11 +203,69 @@ func friendCommon(c *gin.Context) {
 }
 
 func subscribe(c *gin.Context) {
+	//init db
+	sess := getDB()
+	defer sess.Close()
+	db := sess.DB("imd").C("users")
 
+	var s Subscribe
+	c.BindJSON(&s)
+
+	target := User{}
+
+	err := db.Find(bson.M{"email": s.Target}).One(&target)
+	if err != nil {
+		c.JSON(200, gin.H{
+			"message": "target not found",
+		})
+	} else {
+		exist := checkSliceExist(target.Subscribe, s.Requestor)
+		if exist == false {
+			subscribe := append(target.Subscribe, s.Requestor)
+			db.Update(&target, &User{target.Email, target.Friends, target.Block, subscribe}) //being subscriber to target
+			c.JSON(200, gin.H{
+				"success": true,
+			})
+		} else {
+			c.JSON(200, gin.H{
+				"success": false,
+				"message": "this requestor already subscribe to target",
+			})
+		}
+	}
 }
 
 func block(c *gin.Context) {
+	//init db
+	sess := getDB()
+	defer sess.Close()
+	db := sess.DB("imd").C("users")
 
+	var s Subscribe
+	c.BindJSON(&s)
+
+	r := User{}
+
+	err := db.Find(bson.M{"email": s.Requestor}).One(&r)
+	if err != nil {
+		c.JSON(200, gin.H{
+			"message": "requestor not found",
+		})
+	} else {
+		exist := checkSliceExist(r.Block, s.Target)
+		if exist == false {
+			block := append(r.Block, s.Target)
+			db.Update(&r, &User{r.Email, r.Friends, block, r.Subscribe})
+			c.JSON(200, gin.H{
+				"success": true,
+			})
+		} else {
+			c.JSON(200, gin.H{
+				"success": false,
+				"message": "this requestor already block target",
+			})
+		}
+	}
 }
 
 func notification(c *gin.Context) {
