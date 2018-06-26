@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/appengine"
+	"gopkg.in/mgo.v2"
 )
 
 type User struct {
@@ -50,6 +52,16 @@ func main() {
 	//below code using for google cloud app engine run
 	http.Handle("/", r)
 	appengine.Main()
+}
+
+func getDB() *mgo.Session {
+	// session, err := mgo.Dial("mongodb://127.0.0.1:27017/")
+	session, err := mgo.Dial("mongodb://35.240.191.219:27017/")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	return session
 }
 
 func home(c *gin.Context) {
