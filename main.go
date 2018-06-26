@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/appengine"
@@ -269,7 +270,52 @@ func block(c *gin.Context) {
 }
 
 func notification(c *gin.Context) {
+	// init db
+	sess := getDB()
+	defer sess.Close()
+	db := sess.DB("imd").C("users")
 
+	var n Notification
+
+	c.BindJSON(&n)
+
+	user := User{}
+	err := db.Find(bson.M{"email": n.Sender}).One(&user)
+
+	if err != nil {
+
+	} else {
+		receipent := user.Friends
+		//append data from subscribe to receipent
+		for v := range user.Subscribe {
+			receipent = append(receipent, user.Subscribe[v])
+		}
+		//check blocked email
+		for i := range receipent {
+			for j := range user.Block {
+				if receipent[i] == user.Block[j] {
+					//remove from receipent
+					receipent[i] = receipent[len(receipent)-1]
+					receipent[len(receipent)-1] = ""
+					// receipent = receipent[:len(receipent)-1]
+				}
+			}
+		}
+
+		receipent = delete_empty(receipent)
+
+		//regex email
+		re := regexp.MustCompile("^*[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*")
+		email_text := re.FindAllString(n.Text, -1)
+		for i := range email_text {
+			receipent = append(receipent, email_text[i])
+		}
+		fmt.Println(re.FindAllString(n.Text, -1))
+		c.JSON(200, gin.H{
+			"success":    true,
+			"recipients": receipent,
+		})
+	}
 }
 
 // HELPER
@@ -312,4 +358,14 @@ func checkSliceExist(elements []string, email string) bool {
 	}
 
 	return false
+}
+
+func delete_empty(s []string) []string {
+	var r []string
+	for _, str := range s {
+		if str != "" {
+			r = append(r, str)
+		}
+	}
+	return r
 }
